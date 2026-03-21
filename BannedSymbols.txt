@@ -1,0 +1,4 @@
+P:System.DateTime.Now;Use DateTimeOffset.UtcNow instead
+P:System.DateTime.UtcNow;Use DateTimeOffset.UtcNow instead
+M:System.GC.Collect();Do not call GC.Collect directly
+M:System.Threading.Thread.Sleep(System.Int32);Use Task.Delay instead
