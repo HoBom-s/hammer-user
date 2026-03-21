@@ -6,5 +6,5 @@ namespace Hammer.User.Application.UseCases.Login;
 ///     Request DTO for user login.
 /// </summary>
 public sealed record LoginUserRequest(
-    [Required] [EmailAddress] string Email,
+    [Required][EmailAddress] string Email,
     [Required] string Password);

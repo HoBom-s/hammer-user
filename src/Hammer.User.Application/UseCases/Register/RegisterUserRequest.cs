@@ -6,7 +6,7 @@ namespace Hammer.User.Application.UseCases.Register;
 ///     Request DTO for user registration.
 /// </summary>
 public sealed record RegisterUserRequest(
-    [Required] [EmailAddress] string Email,
+    [Required][EmailAddress] string Email,
     [Required] string Nickname,
     [Required]
     [MinLength(8)]
