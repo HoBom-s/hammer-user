@@ -16,5 +16,9 @@
     <File Path="Dockerfile" />
     <File Path=".dockerignore" />
     <File Path="Jenkinsfile" />
+    <File Path=".env.example" />
+    <File Path=".env.local" />
+    <File Path=".env.dev" />
+    <File Path=".env.live" />
   </Folder>
 </Solution>
