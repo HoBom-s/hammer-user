@@ -8,4 +8,13 @@
   <Folder Name="/tests/">
     <Project Path="tests/Hammer.User.Tests/Hammer.User.Tests.csproj" />
   </Folder>
+  <Folder Name="/solution-items/">
+    <File Path=".gitignore" />
+    <File Path="README.md" />
+    <File Path=".editorconfig" />
+    <File Path=".github/workflows/ci.yml" />
+    <File Path="Dockerfile" />
+    <File Path=".dockerignore" />
+    <File Path="Jenkinsfile" />
+  </Folder>
 </Solution>

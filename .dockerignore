@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/out/
+**/.vs/
+**/.idea/
+**/node_modules/
+.git
+.github
+tests
+*.md
+*.slnx.user
+appsettings.Local.json
