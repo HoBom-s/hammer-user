@@ -3,9 +3,11 @@ using Hammer.User.Api.Middleware;
 using Hammer.User.Application;
 using Hammer.User.Application.Common;
 using Hammer.User.Infrastructure;
+using Hammer.User.Infrastructure.Logging;
 using Hammer.User.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using Serilog;
 
 var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "live";
 var envFileName = $".env.{env}";
@@ -20,6 +22,16 @@ else
     await Console.Error.WriteLineAsync($"Warning: {envFileName} not found in any parent directory.");
 
 var builder = WebApplication.CreateBuilder(args);
+
+var kafkaBootstrapServers = builder.Configuration["Kafka:BootstrapServers"] ?? string.Empty;
+
+builder.Services.AddSerilog(configuration =>
+{
+    configuration.ReadFrom.Configuration(builder.Configuration);
+
+    if (!string.IsNullOrWhiteSpace(kafkaBootstrapServers))
+        configuration.WriteToKafkaErrors(kafkaBootstrapServers);
+});
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
