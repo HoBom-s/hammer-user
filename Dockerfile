@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY Hammer.User.slnx ./
@@ -11,7 +11,7 @@ RUN dotnet restore src/Hammer.User.Api/Hammer.User.Api.csproj
 COPY src/ src/
 RUN dotnet publish src/Hammer.User.Api/Hammer.User.Api.csproj -c Release -o /app --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
 RUN groupadd --system --gid 1001 appgroup && \
