@@ -9,6 +9,12 @@ public interface IUserRepository
 
     public Task<Entities.User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
 
+    public Task<(IReadOnlyList<Entities.User> Items, int TotalCount)> GetPagedAsync(
+        int page,
+        int size,
+        Enums.UserStatus? status = null,
+        CancellationToken cancellationToken = default);
+
     public Task AddAsync(Entities.User user, CancellationToken cancellationToken = default);
 
     public Task SaveChangesAsync(CancellationToken cancellationToken = default);

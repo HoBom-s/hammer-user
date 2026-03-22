@@ -90,4 +90,64 @@ public sealed class JwtTokenGeneratorTests
 
         token1.Should().NotBe(token2);
     }
+
+    [Fact]
+    public void ValidateAccessToken_ShouldReturnClaims_WhenTokenIsValid()
+    {
+        var userId = Guid.NewGuid();
+        var token = _sut.GenerateAccessToken(userId, "test@example.com", "tester");
+
+        var claims = _sut.ValidateAccessToken(token);
+
+        claims.Should().NotBeNull();
+        claims!.UserId.Should().Be(userId);
+        claims.Email.Should().Be("test@example.com");
+        claims.Nickname.Should().Be("tester");
+    }
+
+    [Fact]
+    public void ValidateAccessToken_ShouldReturnNull_WhenTokenIsExpired()
+    {
+        var expiredSettings = new JwtSettings
+        {
+            Issuer = "hammer-user",
+            Audience = "hammer",
+            SecretKey = _settings.SecretKey,
+            AccessTokenExpiryMinutes = -1,
+            RefreshTokenExpiryDays = 7,
+        };
+        var expiredGenerator = new JwtTokenGenerator(Options.Create(expiredSettings));
+        var token = expiredGenerator.GenerateAccessToken(Guid.NewGuid(), "test@example.com", "tester");
+
+        var claims = _sut.ValidateAccessToken(token);
+
+        claims.Should().BeNull();
+    }
+
+    [Fact]
+    public void ValidateAccessToken_ShouldReturnNull_WhenSignatureIsInvalid()
+    {
+        var wrongKeySettings = new JwtSettings
+        {
+            Issuer = "hammer-user",
+            Audience = "hammer",
+            SecretKey = "a-completely-different-secret-key-that-is-long-enough!!",
+            AccessTokenExpiryMinutes = 15,
+            RefreshTokenExpiryDays = 7,
+        };
+        var wrongKeyGenerator = new JwtTokenGenerator(Options.Create(wrongKeySettings));
+        var token = wrongKeyGenerator.GenerateAccessToken(Guid.NewGuid(), "test@example.com", "tester");
+
+        var claims = _sut.ValidateAccessToken(token);
+
+        claims.Should().BeNull();
+    }
+
+    [Fact]
+    public void ValidateAccessToken_ShouldReturnNull_WhenTokenIsMalformed()
+    {
+        var claims = _sut.ValidateAccessToken("not-a-jwt-token");
+
+        claims.Should().BeNull();
+    }
 }

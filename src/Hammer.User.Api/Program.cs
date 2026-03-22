@@ -14,6 +14,8 @@ while (dir is not null && !File.Exists(Path.Combine(dir.FullName, envFileName)))
 
 if (dir is not null)
     DotEnv.Load(new DotEnvOptions(envFilePaths: [Path.Combine(dir.FullName, envFileName)]));
+else
+    await Console.Error.WriteLineAsync($"Warning: {envFileName} not found in any parent directory.");
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -18,7 +18,7 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
         builder.Property(r => r.UserId).IsRequired();
         builder.Property(r => r.Token).IsRequired().HasMaxLength(512);
         builder.Property(r => r.ExpiresAt).IsRequired();
-        builder.Property(r => r.RevokedAt);
+        builder.Property(r => r.RevokedAt).IsConcurrencyToken();
 
         builder.HasIndex(r => r.Token).IsUnique();
 
