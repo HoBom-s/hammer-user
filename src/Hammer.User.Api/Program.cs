@@ -3,6 +3,8 @@ using Hammer.User.Api.Middleware;
 using Hammer.User.Application;
 using Hammer.User.Application.Common;
 using Hammer.User.Infrastructure;
+using Hammer.User.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "live";
@@ -37,6 +39,12 @@ builder.Services.AddExceptionHandler<ApplicationExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<HammerUserDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 app.UseExceptionHandler();
 app.MapHealthChecks("/health");
