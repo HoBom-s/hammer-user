@@ -36,10 +36,6 @@ builder.Services.AddOpenApi();
 builder.Services.AddExceptionHandler<ApplicationExceptionHandler>();
 builder.Services.AddProblemDetails();
 
-builder.Services
-    .AddHealthChecks()
-    .AddNpgSql(connectionString);
-
 var app = builder.Build();
 
 app.UseExceptionHandler();

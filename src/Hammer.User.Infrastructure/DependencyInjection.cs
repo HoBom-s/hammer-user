@@ -33,6 +33,10 @@ public static class DependencyInjection
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
 
+        services
+            .AddHealthChecks()
+            .AddDbContextCheck<HammerUserDbContext>();
+
         return services;
     }
 }
