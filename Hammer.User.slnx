@@ -1,0 +1,24 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Hammer.User.Api/Hammer.User.Api.csproj" />
+    <Project Path="src/Hammer.User.Application/Hammer.User.Application.csproj" />
+    <Project Path="src/Hammer.User.Domain/Hammer.User.Domain.csproj" />
+    <Project Path="src/Hammer.User.Infrastructure/Hammer.User.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Hammer.User.Tests/Hammer.User.Tests.csproj" />
+  </Folder>
+  <Folder Name="/solution-items/">
+    <File Path=".gitignore" />
+    <File Path="README.md" />
+    <File Path=".editorconfig" />
+    <File Path=".github/workflows/ci.yml" />
+    <File Path="Dockerfile" />
+    <File Path=".dockerignore" />
+    <File Path="Jenkinsfile" />
+    <File Path=".env.example" />
+    <File Path=".env.local" />
+    <File Path=".env.dev" />
+    <File Path=".env.live" />
+  </Folder>
+</Solution>
