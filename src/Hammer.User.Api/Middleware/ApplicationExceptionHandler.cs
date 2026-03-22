@@ -1,13 +1,15 @@
 using Hammer.User.Application.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Serilog.Context;
 
 namespace Hammer.User.Api.Middleware;
 
 /// <summary>
 ///     Maps application exceptions to HTTP problem details responses.
 /// </summary>
-internal sealed class ApplicationExceptionHandler : IExceptionHandler
+internal sealed class ApplicationExceptionHandler(
+    ILogger<ApplicationExceptionHandler> logger) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
@@ -29,16 +31,22 @@ internal sealed class ApplicationExceptionHandler : IExceptionHandler
         };
 
         if (statusCode == 0)
+        {
+            var traceId = httpContext.Request.Headers["X-Trace-Id"].FirstOrDefault()
+                ?? httpContext.TraceIdentifier;
+
+            using (LogContext.PushProperty("TraceId", traceId))
+            using (LogContext.PushProperty("RequestPath", httpContext.Request.Path.Value))
+            using (LogContext.PushProperty("RequestMethod", httpContext.Request.Method))
+                logger.LogError(exception, "Unhandled exception");
+
             return false;
+        }
 
         httpContext.Response.StatusCode = statusCode;
+
         await httpContext.Response.WriteAsJsonAsync(
-            new ProblemDetails
-            {
-                Status = statusCode,
-                Title = title,
-                Detail = exception.Message,
-            },
+            new ProblemDetails { Status = statusCode, Title = title, Detail = exception.Message },
             cancellationToken);
 
         return true;
