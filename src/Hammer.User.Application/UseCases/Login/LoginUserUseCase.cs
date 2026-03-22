@@ -23,16 +23,16 @@ internal sealed class LoginUserUseCase(
         var user = await userRepository.GetByEmailAsync(request.Email, ct)
             ?? throw new UnauthorizedException(InvalidCredentialsMessage);
 
-        if (!user.HasPassword())
+        if (!user.HasPassword() || user.Status != UserStatus.Active)
             throw new UnauthorizedException(InvalidCredentialsMessage);
 
         if (!passwordHasher.Verify(request.Password, user.PasswordHash!))
             throw new UnauthorizedException(InvalidCredentialsMessage);
 
-        if (user.Status != UserStatus.Active)
+        if (user.Email is null)
             throw new UnauthorizedException(InvalidCredentialsMessage);
 
-        var accessToken = jwtTokenGenerator.GenerateAccessToken(user.Id, user.Email!, user.Nickname);
+        var accessToken = jwtTokenGenerator.GenerateAccessToken(user.Id, user.Email, user.Nickname);
         var refreshToken = jwtTokenGenerator.GenerateRefreshToken();
         var refreshTokenExpiresAt = DateTimeOffset.UtcNow.AddDays(jwtSettings.Value.RefreshTokenExpiryDays);
 

@@ -2,11 +2,15 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Hammer.User.Application.Exceptions;
 using Hammer.User.Application.UseCases.Login;
+using Hammer.User.Application.UseCases.RefreshToken;
 using Hammer.User.Application.UseCases.Register;
+using Hammer.User.Tests.Helpers;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 
 namespace Hammer.User.Tests.Api.Controllers;
 
@@ -107,22 +111,82 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
-    private static void ReplaceService<T>(IServiceCollection services, T? implementation)
-        where T : class
+    [Fact]
+    public async Task Refresh_ShouldReturn200WithNewAccessToken_WhenCookieIsPresent()
     {
-        if (implementation is null)
-            return;
+        var refreshUseCase = Substitute.For<IRefreshTokenUseCase>();
+        refreshUseCase.ExecuteAsync("old-refresh-token", Arg.Any<CancellationToken>())
+            .Returns(new RefreshTokenResponse(
+                "new-access-token",
+                "new-refresh-token",
+                DateTimeOffset.UtcNow.AddDays(7)));
 
-        var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(T));
-        if (descriptor is not null)
-            services.Remove(descriptor);
+        var client = CreateClient(refreshUseCase: refreshUseCase);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/hammer-users/auth/refresh");
+        request.Headers.Add("Cookie", "refresh_token=old-refresh-token");
 
-        services.AddScoped(_ => implementation);
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("accessToken").GetString().Should().Be("new-access-token");
+    }
+
+    [Fact]
+    public async Task Refresh_ShouldSetRotatedRefreshTokenCookie()
+    {
+        var refreshUseCase = Substitute.For<IRefreshTokenUseCase>();
+        refreshUseCase.ExecuteAsync("old-refresh-token", Arg.Any<CancellationToken>())
+            .Returns(new RefreshTokenResponse(
+                "new-access-token",
+                "new-refresh-token",
+                DateTimeOffset.UtcNow.AddDays(7)));
+
+        var client = CreateClient(refreshUseCase: refreshUseCase);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/hammer-users/auth/refresh");
+        request.Headers.Add("Cookie", "refresh_token=old-refresh-token");
+
+        var response = await client.SendAsync(request);
+
+        response.Headers.TryGetValues("Set-Cookie", out var cookies).Should().BeTrue();
+        var cookieHeader = cookies!.First();
+        cookieHeader.Should().Contain("refresh_token=new-refresh-token");
+        cookieHeader.Should().Contain("httponly");
+        cookieHeader.Should().Contain("path=/hammer-users/auth");
+    }
+
+    [Fact]
+    public async Task Refresh_ShouldReturn401_WhenCookieIsMissing()
+    {
+        var client = CreateClient(refreshUseCase: Substitute.For<IRefreshTokenUseCase>());
+
+        var response = await client.PostAsync(
+            new Uri("/hammer-users/auth/refresh", UriKind.Relative),
+            null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Refresh_ShouldReturn401_WhenUseCaseThrows()
+    {
+        var refreshUseCase = Substitute.For<IRefreshTokenUseCase>();
+        refreshUseCase.ExecuteAsync("bad-token", Arg.Any<CancellationToken>())
+            .Throws(new UnauthorizedException("유효하지 않은 토큰이에요."));
+
+        var client = CreateClient(refreshUseCase: refreshUseCase);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/hammer-users/auth/refresh");
+        request.Headers.Add("Cookie", "refresh_token=bad-token");
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     private HttpClient CreateClient(
         IRegisterUserUseCase? registerUseCase = null,
-        ILoginUserUseCase? loginUseCase = null)
+        ILoginUserUseCase? loginUseCase = null,
+        IRefreshTokenUseCase? refreshUseCase = null)
     {
         return _factory.WithWebHostBuilder(builder =>
         {
@@ -134,8 +198,14 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
             builder.UseSetting("Jwt:RefreshTokenExpiryDays", "7");
             builder.ConfigureServices(services =>
             {
-                ReplaceService(services, registerUseCase);
-                ReplaceService(services, loginUseCase);
+                if (registerUseCase is not null)
+                    services.ReplaceService(registerUseCase);
+
+                if (loginUseCase is not null)
+                    services.ReplaceService(loginUseCase);
+
+                if (refreshUseCase is not null)
+                    services.ReplaceService(refreshUseCase);
             });
         }).CreateClient();
     }

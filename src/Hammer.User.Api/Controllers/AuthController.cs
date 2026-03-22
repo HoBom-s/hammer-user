@@ -1,4 +1,5 @@
 using Hammer.User.Application.UseCases.Login;
+using Hammer.User.Application.UseCases.RefreshToken;
 using Hammer.User.Application.UseCases.Register;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,6 +13,7 @@ namespace Hammer.User.Api.Controllers;
 [Tags("Auth")]
 public sealed class AuthController(
     ILoginUserUseCase loginUserUseCase,
+    IRefreshTokenUseCase refreshTokenUseCase,
     IRegisterUserUseCase registerUserUseCase) : ControllerBase
 {
     /// <summary>
@@ -27,6 +29,33 @@ public sealed class AuthController(
     public async Task<IActionResult> LoginAsync(LoginUserRequest request, CancellationToken ct)
     {
         var response = await loginUserUseCase.ExecuteAsync(request, ct);
+
+        Response.Cookies.Append("refresh_token", response.RefreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Expires = response.RefreshTokenExpiresAt,
+            Path = "/hammer-users/auth",
+        });
+
+        return Ok(new { response.AccessToken });
+    }
+
+    /// <summary>
+    ///     Refresh Token 쿠키를 사용하여 새로운 Access Token과 Refresh Token을 발급한다.
+    /// </summary>
+    /// <param name="ct">The cancellation token.</param>
+    /// <returns>200 OK with the new access token.</returns>
+    [HttpPost("refresh")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RefreshAsync(CancellationToken ct)
+    {
+        if (!Request.Cookies.TryGetValue("refresh_token", out var refreshToken))
+            return Unauthorized();
+
+        var response = await refreshTokenUseCase.ExecuteAsync(refreshToken, ct);
 
         Response.Cookies.Append("refresh_token", response.RefreshToken, new CookieOptions
         {

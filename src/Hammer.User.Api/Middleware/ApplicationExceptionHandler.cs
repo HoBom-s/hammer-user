@@ -37,6 +37,7 @@ internal sealed class ApplicationExceptionHandler : IExceptionHandler
             {
                 Status = statusCode,
                 Title = title,
+                Detail = exception.Message,
             },
             cancellationToken);
 
