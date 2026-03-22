@@ -48,8 +48,13 @@ using (var scope = app.Services.CreateScope())
 
 app.UseExceptionHandler();
 app.MapHealthChecks("/health");
-app.MapOpenApi();
-app.MapScalarApiReference();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
+}
+
 app.MapControllers();
 
 await app.RunAsync();
