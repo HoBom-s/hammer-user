@@ -149,7 +149,10 @@ public sealed class AuthController(
             RefreshToken,
             new CookieOptions
             {
-                HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict, Path = Path,
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Path = Path,
             });
 
         return NoContent();
