@@ -12,6 +12,7 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<Domain.Entiti
 
         builder.HasKey(u => u.Id);
         builder.Property(u => u.Id).ValueGeneratedNever();
+        builder.Property<uint>("xmin").IsRowVersion();
         builder.Property(u => u.CreatedAt).IsRequired();
         builder.Property(u => u.UpdatedAt).IsRequired();
 
