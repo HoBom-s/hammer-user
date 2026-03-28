@@ -72,6 +72,7 @@ public sealed class InternalAuthControllerTests : IClassFixture<WebApplicationFa
     {
         return _factory.WithWebHostBuilder(builder =>
         {
+            builder.UseSetting("environment", "Testing");
             builder.UseSetting("ConnectionStrings:DefaultConnection", "Host=localhost;Database=test");
             builder.UseSetting("Jwt:SecretKey", "test-secret-key-must-be-at-least-32-characters!!");
             builder.UseSetting("Jwt:Issuer", "test");
