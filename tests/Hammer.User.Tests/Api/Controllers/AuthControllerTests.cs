@@ -2,10 +2,17 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Hammer.User.Application.Common;
 using Hammer.User.Application.Exceptions;
+using Hammer.User.Application.UseCases.Device;
 using Hammer.User.Application.UseCases.Login;
+using Hammer.User.Application.UseCases.Logout;
+using Hammer.User.Application.UseCases.OAuthLogin;
 using Hammer.User.Application.UseCases.RefreshToken;
 using Hammer.User.Application.UseCases.Register;
+using Hammer.User.Application.UseCases.UserInfo;
+using Hammer.User.Domain.Enums;
+using Hammer.User.Domain.Ports;
 using Hammer.User.Tests.Helpers;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -183,10 +190,214 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task OAuthLogin_ShouldReturn200WithAccessToken_WhenValid()
+    {
+        var oAuthUseCase = Substitute.For<IOAuthLoginUseCase>();
+        oAuthUseCase.ExecuteAsync(Arg.Any<OAuthLoginRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new LoginUserResponse("oauth-access-token", "oauth-refresh-token", DateTimeOffset.UtcNow.AddDays(7)));
+
+        var client = CreateClient(oAuthLoginUseCase: oAuthUseCase);
+        var request = new { Provider = OAuthProvider.Google, Token = "google-token" };
+
+        var response = await client.PostAsJsonAsync("/hammer-users/auth/oauth", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("accessToken").GetString().Should().Be("oauth-access-token");
+    }
+
+    [Fact]
+    public async Task OAuthLogin_ShouldSetRefreshTokenCookie_WhenValid()
+    {
+        var oAuthUseCase = Substitute.For<IOAuthLoginUseCase>();
+        oAuthUseCase.ExecuteAsync(Arg.Any<OAuthLoginRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new LoginUserResponse("oauth-access-token", "oauth-refresh-token", DateTimeOffset.UtcNow.AddDays(7)));
+
+        var client = CreateClient(oAuthLoginUseCase: oAuthUseCase);
+        var request = new { Provider = OAuthProvider.Google, Token = "google-token" };
+
+        var response = await client.PostAsJsonAsync("/hammer-users/auth/oauth", request);
+
+        response.Headers.TryGetValues("Set-Cookie", out var cookies).Should().BeTrue();
+        var cookieHeader = cookies!.First();
+        cookieHeader.Should().Contain("refresh_token=oauth-refresh-token");
+        cookieHeader.Should().Contain("httponly");
+        cookieHeader.Should().Contain("samesite=strict");
+        cookieHeader.Should().Contain("path=/hammer-users/auth");
+    }
+
+    [Fact]
+    public async Task OAuthLogin_ShouldReturn401_WhenUnauthorized()
+    {
+        var oAuthUseCase = Substitute.For<IOAuthLoginUseCase>();
+        oAuthUseCase.ExecuteAsync(Arg.Any<OAuthLoginRequest>(), Arg.Any<CancellationToken>())
+            .Throws(new UnauthorizedException("비활성화된 계정입니다."));
+
+        var client = CreateClient(oAuthLoginUseCase: oAuthUseCase);
+        var request = new { Provider = OAuthProvider.Google, Token = "google-token" };
+
+        var response = await client.PostAsJsonAsync("/hammer-users/auth/oauth", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task OAuthLogin_ShouldReturn409_WhenEmailConflicts()
+    {
+        var oAuthUseCase = Substitute.For<IOAuthLoginUseCase>();
+        oAuthUseCase.ExecuteAsync(Arg.Any<OAuthLoginRequest>(), Arg.Any<CancellationToken>())
+            .Throws(new ConflictException("이미 해당 이메일로 가입된 계정이 존재합니다."));
+
+        var client = CreateClient(oAuthLoginUseCase: oAuthUseCase);
+        var request = new { Provider = OAuthProvider.Google, Token = "google-token" };
+
+        var response = await client.PostAsJsonAsync("/hammer-users/auth/oauth", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task UpsertDevice_ShouldReturn200_WhenBearerTokenIsValid()
+    {
+        var registerDeviceUseCase = Substitute.For<IRegisterDeviceUseCase>();
+        var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+        jwtTokenGenerator.ValidateAccessToken("valid-access-token")
+            .Returns(new AccessTokenClaims(Guid.NewGuid(), "test@example.com", "tester"));
+
+        var client = CreateClient(registerDeviceUseCase: registerDeviceUseCase, jwtTokenGenerator: jwtTokenGenerator);
+        using var request = new HttpRequestMessage(HttpMethod.Put, "/hammer-users/auth/device");
+        request.Headers.Add("Authorization", "Bearer valid-access-token");
+        request.Content = JsonContent.Create(new { Platform = DevicePlatform.Ios, DeviceIdentifier = "device-123", FcmToken = "fcm-token" });
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        await registerDeviceUseCase.Received(1).ExecuteAsync(Arg.Any<RegisterDeviceRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpsertDevice_ShouldReturn401_WhenNoAuthHeader()
+    {
+        var client = CreateClient(registerDeviceUseCase: Substitute.For<IRegisterDeviceUseCase>(), jwtTokenGenerator: Substitute.For<IJwtTokenGenerator>());
+        using var request = new HttpRequestMessage(HttpMethod.Put, "/hammer-users/auth/device");
+        request.Content = JsonContent.Create(new { Platform = DevicePlatform.Ios, DeviceIdentifier = "device-123", FcmToken = "fcm-token" });
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpsertDevice_ShouldReturn401_WhenTokenIsInvalid()
+    {
+        var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+        jwtTokenGenerator.ValidateAccessToken("invalid-token").Returns((AccessTokenClaims?)null);
+
+        var client = CreateClient(registerDeviceUseCase: Substitute.For<IRegisterDeviceUseCase>(), jwtTokenGenerator: jwtTokenGenerator);
+        using var request = new HttpRequestMessage(HttpMethod.Put, "/hammer-users/auth/device");
+        request.Headers.Add("Authorization", "Bearer invalid-token");
+        request.Content = JsonContent.Create(new { Platform = DevicePlatform.Ios, DeviceIdentifier = "device-123", FcmToken = "fcm-token" });
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Logout_ShouldReturn204_WhenCookieIsPresent()
+    {
+        var logoutUseCase = Substitute.For<ILogoutUseCase>();
+        var client = CreateClient(logoutUseCase: logoutUseCase);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/hammer-users/auth/logout");
+        request.Headers.Add("Cookie", "refresh_token=some-token");
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await logoutUseCase.Received(1).ExecuteAsync("some-token", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Logout_ShouldDeleteRefreshTokenCookie()
+    {
+        var logoutUseCase = Substitute.For<ILogoutUseCase>();
+        var client = CreateClient(logoutUseCase: logoutUseCase);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/hammer-users/auth/logout");
+        request.Headers.Add("Cookie", "refresh_token=some-token");
+
+        var response = await client.SendAsync(request);
+
+        response.Headers.TryGetValues("Set-Cookie", out var cookies).Should().BeTrue();
+        var cookieHeader = cookies!.First();
+        cookieHeader.Should().Contain("refresh_token=");
+        cookieHeader.Should().Contain("path=/hammer-users/auth");
+        cookieHeader.Should().Contain("expires=");
+    }
+
+    [Fact]
+    public async Task Logout_ShouldReturn401_WhenCookieIsMissing()
+    {
+        var client = CreateClient(logoutUseCase: Substitute.For<ILogoutUseCase>());
+
+        var response = await client.PostAsync(
+            new Uri("/hammer-users/auth/logout", UriKind.Relative),
+            null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetMe_ShouldReturn200WithUserInfo_WhenTokenIsValid()
+    {
+        var userId = Guid.NewGuid();
+        var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+        jwtTokenGenerator.ValidateAccessToken("valid-access-token")
+            .Returns(new AccessTokenClaims(userId, "test@example.com", "tester"));
+
+        var getUserInfoByTokenUseCase = Substitute.For<IGetUserInfoByTokenUseCase>();
+        var expectedResponse = new UserInfoDetailResponse(
+            userId,
+            "test@example.com",
+            "tester",
+            UserStatus.Active,
+            null,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow);
+        getUserInfoByTokenUseCase.ExecuteAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(expectedResponse);
+
+        var client = CreateClient(getUserInfoByTokenUseCase: getUserInfoByTokenUseCase, jwtTokenGenerator: jwtTokenGenerator);
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/hammer-users/auth/me");
+        request.Headers.Add("Authorization", "Bearer valid-access-token");
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("id").GetString().Should().Be(userId.ToString());
+        body.GetProperty("nickname").GetString().Should().Be("tester");
+    }
+
+    [Fact]
+    public async Task GetMe_ShouldReturn401_WhenNoAuthHeader()
+    {
+        var client = CreateClient(jwtTokenGenerator: Substitute.For<IJwtTokenGenerator>());
+
+        var response = await client.GetAsync(new Uri("/hammer-users/auth/me", UriKind.Relative));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
     private HttpClient CreateClient(
         IRegisterUserUseCase? registerUseCase = null,
         ILoginUserUseCase? loginUseCase = null,
-        IRefreshTokenUseCase? refreshUseCase = null)
+        IRefreshTokenUseCase? refreshUseCase = null,
+        IOAuthLoginUseCase? oAuthLoginUseCase = null,
+        IRegisterDeviceUseCase? registerDeviceUseCase = null,
+        ILogoutUseCase? logoutUseCase = null,
+        IGetUserInfoByTokenUseCase? getUserInfoByTokenUseCase = null,
+        IJwtTokenGenerator? jwtTokenGenerator = null)
     {
         return _factory.WithWebHostBuilder(builder =>
         {
@@ -206,6 +417,21 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
 
                 if (refreshUseCase is not null)
                     services.ReplaceService(refreshUseCase);
+
+                if (oAuthLoginUseCase is not null)
+                    services.ReplaceService(oAuthLoginUseCase);
+
+                if (registerDeviceUseCase is not null)
+                    services.ReplaceService(registerDeviceUseCase);
+
+                if (logoutUseCase is not null)
+                    services.ReplaceService(logoutUseCase);
+
+                if (getUserInfoByTokenUseCase is not null)
+                    services.ReplaceService(getUserInfoByTokenUseCase);
+
+                if (jwtTokenGenerator is not null)
+                    services.ReplaceService(jwtTokenGenerator);
             });
         }).CreateClient();
     }

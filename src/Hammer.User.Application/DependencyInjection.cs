@@ -1,5 +1,8 @@
+using Hammer.User.Application.UseCases.Device;
 using Hammer.User.Application.UseCases.GetUsers;
 using Hammer.User.Application.UseCases.Login;
+using Hammer.User.Application.UseCases.Logout;
+using Hammer.User.Application.UseCases.OAuthLogin;
 using Hammer.User.Application.UseCases.RefreshToken;
 using Hammer.User.Application.UseCases.Register;
 using Hammer.User.Application.UseCases.UserInfo;
@@ -22,9 +25,13 @@ public static class DependencyInjection
     {
         services.AddScoped<IGetUsersUseCase, GetUsersUseCase>();
         services.AddScoped<ILoginUserUseCase, LoginUserUseCase>();
+        services.AddScoped<ILogoutUseCase, LogoutUseCase>();
+        services.AddScoped<IOAuthLoginUseCase, OAuthLoginUseCase>();
         services.AddScoped<IRefreshTokenUseCase, RefreshTokenUseCase>();
+        services.AddScoped<IRegisterDeviceUseCase, RegisterDeviceUseCase>();
         services.AddScoped<IRegisterUserUseCase, RegisterUserUseCase>();
         services.AddScoped<IGetUserInfoByIdUseCase, GetUserInfoByIdUseCase>();
+        services.AddScoped<IGetUserInfoByTokenUseCase, GetUserInfoByTokenUseCase>();
         services.AddScoped<IValidateTokenUseCase, ValidateTokenUseCase>();
 
         return services;

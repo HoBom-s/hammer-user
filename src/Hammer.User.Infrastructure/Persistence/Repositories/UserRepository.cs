@@ -1,5 +1,7 @@
+using Hammer.User.Application.Exceptions;
 using Hammer.User.Domain.Ports;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Hammer.User.Infrastructure.Persistence.Repositories;
 
@@ -32,6 +34,19 @@ internal sealed class UserRepository(HammerUserDbContext context) : IUserReposit
     public async Task AddAsync(Domain.Entities.User user, CancellationToken cancellationToken = default) =>
         await context.Users.AddAsync(user, cancellationToken);
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken = default) =>
-        context.SaveChangesAsync(cancellationToken);
+    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException("동시 요청으로 인해 작업이 실패했습니다. 다시 시도해주세요.");
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            throw new ConflictException("이미 존재하는 데이터입니다.");
+        }
+    }
 }

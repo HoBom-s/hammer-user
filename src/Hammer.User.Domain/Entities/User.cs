@@ -80,10 +80,7 @@ public sealed class User : Entity
 
         return new User
         {
-            Email = email,
-            Nickname = nickname,
-            PasswordHash = passwordHash,
-            Status = UserStatus.Active,
+            Email = email, Nickname = nickname, PasswordHash = passwordHash, Status = UserStatus.Active,
         };
     }
 
