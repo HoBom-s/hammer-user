@@ -41,8 +41,7 @@ public sealed class KafkaErrorSinkTests : IDisposable
     [InlineData(LogEventLevel.Verbose)]
     [InlineData(LogEventLevel.Debug)]
     [InlineData(LogEventLevel.Information)]
-    [InlineData(LogEventLevel.Warning)]
-    public void Emit_ShouldSkip_WhenLevelIsBelowError(LogEventLevel level)
+    public void Emit_ShouldSkip_WhenLevelIsBelowWarning(LogEventLevel level)
     {
         var logEvent = CreateLogEvent(level, new InvalidOperationException("test"));
 
@@ -50,6 +49,19 @@ public sealed class KafkaErrorSinkTests : IDisposable
 
         _producer.DidNotReceive().Produce(
             Arg.Any<string>(),
+            Arg.Any<Message<string, string>>(),
+            Arg.Any<Action<DeliveryReport<string, string>>>());
+    }
+
+    [Fact]
+    public void Emit_ShouldProduce_WhenWarningWithException()
+    {
+        var logEvent = CreateLogEvent(LogEventLevel.Warning, new InvalidOperationException("bad request"));
+
+        _sut.Emit(logEvent);
+
+        _producer.Received(1).Produce(
+            "service-error-log",
             Arg.Any<Message<string, string>>(),
             Arg.Any<Action<DeliveryReport<string, string>>>());
     }
@@ -95,6 +107,7 @@ public sealed class KafkaErrorSinkTests : IDisposable
             new("TraceId", new ScalarValue("trace-123")),
             new("RequestPath", new ScalarValue("/hammer-users/auth/login")),
             new("RequestMethod", new ScalarValue("POST")),
+            new("StatusCode", new ScalarValue(400)),
         };
         var exception = new InvalidOperationException("connection refused");
         var logEvent = CreateLogEvent(LogEventLevel.Error, exception, properties);
@@ -112,6 +125,7 @@ public sealed class KafkaErrorSinkTests : IDisposable
         root.GetProperty("exceptionType").GetString().Should().Be("System.InvalidOperationException");
         root.GetProperty("message").GetString().Should().Be("connection refused");
         root.GetProperty("requestPath").GetString().Should().Be("/hammer-users/auth/login");
+        root.GetProperty("statusCode").GetString().Should().Be("400");
         root.GetProperty("requestMethod").GetString().Should().Be("POST");
         root.TryGetProperty("timestamp", out _).Should().BeTrue();
     }

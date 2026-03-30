@@ -66,18 +66,18 @@ public sealed class ApplicationExceptionHandlerTests
     }
 
     [Fact]
-    public async Task TryHandleAsync_ShouldNotLog_WhenKnownException()
+    public async Task TryHandleAsync_ShouldLogWarning_WhenKnownException()
     {
         var exception = new NotFoundException("not found");
         var httpContext = new DefaultHttpContext { Response = { Body = new MemoryStream() } };
 
         await _sut.TryHandleAsync(httpContext, exception, CancellationToken.None);
 
-        _logger.DidNotReceive().Log(
-            Arg.Any<LogLevel>(),
+        _logger.Received(1).Log(
+            LogLevel.Warning,
             Arg.Any<EventId>(),
             Arg.Any<object>(),
-            Arg.Any<Exception?>(),
+            exception,
             Arg.Any<Func<object, Exception?, string>>());
     }
 

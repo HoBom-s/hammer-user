@@ -45,12 +45,14 @@ internal sealed class KafkaErrorSink : ILogEventSink, IDisposable
     {
         ArgumentNullException.ThrowIfNull(logEvent);
 
-        if (logEvent.Exception is null || logEvent.Level < LogEventLevel.Error)
+        if (logEvent.Exception is null || logEvent.Level < LogEventLevel.Warning)
             return;
 
         var traceId = GetProperty(logEvent, "TraceId");
         var requestPath = GetProperty(logEvent, "RequestPath");
         var requestMethod = GetProperty(logEvent, "RequestMethod");
+
+        var statusCode = GetProperty(logEvent, "StatusCode");
 
         var payload = JsonSerializer.Serialize(
             new
@@ -58,6 +60,7 @@ internal sealed class KafkaErrorSink : ILogEventSink, IDisposable
                 TraceId = traceId,
                 Source,
                 Level = logEvent.Level.ToString(),
+                StatusCode = statusCode,
                 ExceptionType = logEvent.Exception.GetType().FullName,
                 logEvent.Exception.Message,
                 logEvent.Exception.StackTrace,

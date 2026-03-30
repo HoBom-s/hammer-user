@@ -30,11 +30,11 @@ internal sealed class ApplicationExceptionHandler(
             _ => (0, string.Empty),
         };
 
+        var traceId = httpContext.Request.Headers["X-Trace-Id"].FirstOrDefault()
+            ?? httpContext.TraceIdentifier;
+
         if (statusCode == 0)
         {
-            var traceId = httpContext.Request.Headers["X-Trace-Id"].FirstOrDefault()
-                ?? httpContext.TraceIdentifier;
-
             using (LogContext.PushProperty("TraceId", traceId))
             using (LogContext.PushProperty("RequestPath", httpContext.Request.Path.Value))
             using (LogContext.PushProperty("RequestMethod", httpContext.Request.Method))
@@ -42,6 +42,12 @@ internal sealed class ApplicationExceptionHandler(
 
             return false;
         }
+
+        using (LogContext.PushProperty("TraceId", traceId))
+        using (LogContext.PushProperty("RequestPath", httpContext.Request.Path.Value))
+        using (LogContext.PushProperty("RequestMethod", httpContext.Request.Method))
+        using (LogContext.PushProperty("StatusCode", statusCode))
+            logger.LogWarning(exception, "Application exception");
 
         httpContext.Response.StatusCode = statusCode;
 
