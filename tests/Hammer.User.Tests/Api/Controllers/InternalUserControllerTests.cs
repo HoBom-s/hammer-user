@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Hammer.User.Application.Common;
+using Hammer.User.Application.UseCases.GetDeviceToken;
 using Hammer.User.Application.UseCases.GetUsers;
 using Hammer.User.Domain.Enums;
 using Hammer.User.Tests.Helpers;
@@ -33,7 +34,7 @@ public sealed class InternalUserControllerTests : IClassFixture<WebApplicationFa
                 1,
                 1));
 
-        var client = CreateClient(useCase);
+        var client = CreateClient(getUsersUseCase: useCase);
 
         var response = await client.GetAsync(new Uri("/hammer-users/internal/users", UriKind.Relative));
 
@@ -51,7 +52,7 @@ public sealed class InternalUserControllerTests : IClassFixture<WebApplicationFa
         useCase.ExecuteAsync(Arg.Any<GetUsersRequest>(), Arg.Any<CancellationToken>())
             .Returns(new PagedResponse<UserSummaryResponse>([], 1, 20, 0, 0));
 
-        var client = CreateClient(useCase);
+        var client = CreateClient(getUsersUseCase: useCase);
 
         var response = await client.GetAsync(new Uri("/hammer-users/internal/users", UriKind.Relative));
 
@@ -69,7 +70,7 @@ public sealed class InternalUserControllerTests : IClassFixture<WebApplicationFa
     public async Task GetUsers_ShouldReturn400_WhenPageOrSizeIsInvalid(int page, int size)
     {
         var useCase = Substitute.For<IGetUsersUseCase>();
-        var client = CreateClient(useCase);
+        var client = CreateClient(getUsersUseCase: useCase);
 
         var response = await client.GetAsync(
             new Uri($"/hammer-users/internal/users?page={page}&size={size}", UriKind.Relative));
@@ -77,8 +78,47 @@ public sealed class InternalUserControllerTests : IClassFixture<WebApplicationFa
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
-    private HttpClient CreateClient(IGetUsersUseCase useCase)
+    [Fact]
+    public async Task GetDeviceToken_ShouldReturn200_WhenDeviceExists()
     {
+        var deviceTokenUseCase = Substitute.For<IGetDeviceTokenUseCase>();
+        deviceTokenUseCase.ExecuteAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns("ExponentPushToken[abc123]");
+
+        var userId = Guid.NewGuid();
+        var client = CreateClient(deviceTokenUseCase: deviceTokenUseCase);
+
+        var response = await client.GetAsync(
+            new Uri($"/hammer-users/internal/users/{userId}/device-token", UriKind.Relative));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<DeviceTokenResponse>();
+        body!.PushToken.Should().Be("ExponentPushToken[abc123]");
+    }
+
+    [Fact]
+    public async Task GetDeviceToken_ShouldReturn404_WhenDeviceNotFound()
+    {
+        var deviceTokenUseCase = Substitute.For<IGetDeviceTokenUseCase>();
+        deviceTokenUseCase.ExecuteAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns((string?)null);
+
+        var userId = Guid.NewGuid();
+        var client = CreateClient(deviceTokenUseCase: deviceTokenUseCase);
+
+        var response = await client.GetAsync(
+            new Uri($"/hammer-users/internal/users/{userId}/device-token", UriKind.Relative));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    private HttpClient CreateClient(
+        IGetUsersUseCase? getUsersUseCase = null,
+        IGetDeviceTokenUseCase? deviceTokenUseCase = null)
+    {
+        getUsersUseCase ??= Substitute.For<IGetUsersUseCase>();
+        deviceTokenUseCase ??= Substitute.For<IGetDeviceTokenUseCase>();
+
         return _factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("environment", "Testing");
@@ -90,7 +130,8 @@ public sealed class InternalUserControllerTests : IClassFixture<WebApplicationFa
             builder.UseSetting("Jwt:RefreshTokenExpiryDays", "7");
             builder.ConfigureServices(services =>
             {
-                services.ReplaceService(useCase);
+                services.ReplaceService(getUsersUseCase);
+                services.ReplaceService(deviceTokenUseCase);
             });
         }).CreateClient();
     }

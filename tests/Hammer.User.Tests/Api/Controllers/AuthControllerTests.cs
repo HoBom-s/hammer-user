@@ -268,7 +268,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
         var client = CreateClient(registerDeviceUseCase: registerDeviceUseCase, jwtTokenGenerator: jwtTokenGenerator);
         using var request = new HttpRequestMessage(HttpMethod.Put, "/hammer-users/auth/device");
         request.Headers.Add("Authorization", "Bearer valid-access-token");
-        request.Content = JsonContent.Create(new { Platform = DevicePlatform.Ios, DeviceIdentifier = "device-123", FcmToken = "fcm-token" });
+        request.Content = JsonContent.Create(new { Platform = DevicePlatform.Ios, DeviceIdentifier = "device-123", PushToken = "fcm-token" });
 
         var response = await client.SendAsync(request);
 
@@ -281,7 +281,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     {
         var client = CreateClient(registerDeviceUseCase: Substitute.For<IRegisterDeviceUseCase>(), jwtTokenGenerator: Substitute.For<IJwtTokenGenerator>());
         using var request = new HttpRequestMessage(HttpMethod.Put, "/hammer-users/auth/device");
-        request.Content = JsonContent.Create(new { Platform = DevicePlatform.Ios, DeviceIdentifier = "device-123", FcmToken = "fcm-token" });
+        request.Content = JsonContent.Create(new { Platform = DevicePlatform.Ios, DeviceIdentifier = "device-123", PushToken = "fcm-token" });
 
         var response = await client.SendAsync(request);
 
@@ -297,7 +297,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
         var client = CreateClient(registerDeviceUseCase: Substitute.For<IRegisterDeviceUseCase>(), jwtTokenGenerator: jwtTokenGenerator);
         using var request = new HttpRequestMessage(HttpMethod.Put, "/hammer-users/auth/device");
         request.Headers.Add("Authorization", "Bearer invalid-token");
-        request.Content = JsonContent.Create(new { Platform = DevicePlatform.Ios, DeviceIdentifier = "device-123", FcmToken = "fcm-token" });
+        request.Content = JsonContent.Create(new { Platform = DevicePlatform.Ios, DeviceIdentifier = "device-123", PushToken = "fcm-token" });
 
         var response = await client.SendAsync(request);
 

@@ -18,7 +18,7 @@ internal sealed class RegisterDeviceUseCase(IUserRepository userRepository) : IR
         if (!user.IsActive)
             throw new UnauthorizedException("비활성화된 계정입니다.");
 
-        user.RegisterDevice(request.Platform, request.DeviceIdentifier, request.FcmToken);
+        user.RegisterDevice(request.Platform, request.DeviceIdentifier, request.PushToken);
         await userRepository.SaveChangesAsync(ct);
     }
 }

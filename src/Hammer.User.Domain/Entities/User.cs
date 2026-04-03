@@ -135,23 +135,23 @@ public sealed class User : Entity
     /// </summary>
     /// <param name="platform">The device platform.</param>
     /// <param name="deviceIdentifier">The unique device identifier.</param>
-    /// <param name="fcmToken">The FCM push token.</param>
-    public void RegisterDevice(DevicePlatform platform, string deviceIdentifier, string fcmToken)
+    /// <param name="pushToken">The push token.</param>
+    public void RegisterDevice(DevicePlatform platform, string deviceIdentifier, string pushToken)
     {
-        Device = UserDevice.Create(Id, platform, deviceIdentifier, fcmToken);
+        Device = UserDevice.Create(Id, platform, deviceIdentifier, pushToken);
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     /// <summary>
-    ///     Updates the FCM token on the currently registered device.
+    ///     Updates the push token on the currently registered device.
     /// </summary>
-    /// <param name="fcmToken">The new FCM token.</param>
-    public void UpdateDeviceFcmToken(string fcmToken)
+    /// <param name="pushToken">The new push token.</param>
+    public void UpdateDevicePushToken(string pushToken)
     {
         if (Device is null)
             throw new InvalidOperationException("No device is registered.");
 
-        Device.UpdateFcmToken(fcmToken);
+        Device.UpdatePushToken(pushToken);
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
