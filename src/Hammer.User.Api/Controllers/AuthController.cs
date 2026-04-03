@@ -125,7 +125,7 @@ public sealed class AuthController(
         if (claims is null)
             return Unauthorized();
 
-        var request = new RegisterDeviceRequest(claims.UserId, body.Platform, body.DeviceIdentifier, body.FcmToken);
+        var request = new RegisterDeviceRequest(claims.UserId, body.Platform, body.DeviceIdentifier, body.PushToken);
         await registerDeviceUseCase.ExecuteAsync(request, ct);
         return Ok();
     }

@@ -180,7 +180,7 @@ namespace Hammer.User.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(512)")
                         .HasColumnName("device_identifier");
 
-                    b.Property<string>("FcmToken")
+                    b.Property<string>("PushToken")
                         .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")

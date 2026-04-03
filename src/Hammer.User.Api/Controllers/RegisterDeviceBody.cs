@@ -10,4 +10,4 @@ namespace Hammer.User.Api.Controllers;
 public sealed record RegisterDeviceBody(
     [property: JsonRequired] DevicePlatform Platform,
     [Required] string DeviceIdentifier,
-    [Required] string FcmToken);
+    [Required] string PushToken);

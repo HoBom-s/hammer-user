@@ -29,7 +29,7 @@ public sealed class RegisterDeviceUseCaseTests
         user.Device.Should().NotBeNull();
         user.Device!.Platform.Should().Be(DevicePlatform.Ios);
         user.Device.DeviceIdentifier.Should().Be("device-123");
-        user.Device.FcmToken.Should().Be("fcm-token");
+        user.Device.PushToken.Should().Be("fcm-token");
         await _userRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 

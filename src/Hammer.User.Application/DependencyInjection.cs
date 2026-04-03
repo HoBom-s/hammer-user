@@ -1,4 +1,5 @@
 using Hammer.User.Application.UseCases.Device;
+using Hammer.User.Application.UseCases.GetDeviceToken;
 using Hammer.User.Application.UseCases.GetUsers;
 using Hammer.User.Application.UseCases.Login;
 using Hammer.User.Application.UseCases.Logout;
@@ -23,6 +24,7 @@ public static class DependencyInjection
     /// <returns>The service collection for chaining.</returns>
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddScoped<IGetDeviceTokenUseCase, GetDeviceTokenUseCase>();
         services.AddScoped<IGetUsersUseCase, GetUsersUseCase>();
         services.AddScoped<ILoginUserUseCase, LoginUserUseCase>();
         services.AddScoped<ILogoutUseCase, LogoutUseCase>();

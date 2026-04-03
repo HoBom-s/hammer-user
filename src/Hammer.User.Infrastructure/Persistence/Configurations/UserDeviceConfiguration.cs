@@ -18,7 +18,7 @@ internal sealed class UserDeviceConfiguration : IEntityTypeConfiguration<UserDev
         builder.Property(d => d.UserId).IsRequired();
         builder.Property(d => d.Platform).IsRequired().HasConversion<short>();
         builder.Property(d => d.DeviceIdentifier).IsRequired().HasMaxLength(512);
-        builder.Property(d => d.FcmToken).IsRequired().HasMaxLength(512);
+        builder.Property(d => d.PushToken).IsRequired().HasMaxLength(512).HasColumnName("fcm_token");
 
         builder.HasIndex(d => d.UserId).IsUnique();
     }
