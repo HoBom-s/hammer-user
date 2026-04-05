@@ -13,12 +13,12 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Hammer.User.Application;
 
 /// <summary>
-/// Application layer dependency injection extensions.
+///     Application layer dependency injection extensions.
 /// </summary>
 public static class DependencyInjection
 {
     /// <summary>
-    /// Registers application services (use cases).
+    ///     Registers application services (use cases).
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <returns>The service collection for chaining.</returns>
@@ -33,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<IRegisterDeviceUseCase, RegisterDeviceUseCase>();
         services.AddScoped<IRegisterUserUseCase, RegisterUserUseCase>();
         services.AddScoped<IGetUserInfoByIdUseCase, GetUserInfoByIdUseCase>();
+        services.AddScoped<IDeleteUserInfoByIdUseCase, DeleteUserInfoByIdUseCase>();
         services.AddScoped<IGetUserInfoByTokenUseCase, GetUserInfoByTokenUseCase>();
         services.AddScoped<IValidateTokenUseCase, ValidateTokenUseCase>();
 

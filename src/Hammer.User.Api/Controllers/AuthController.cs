@@ -25,6 +25,7 @@ public sealed class AuthController(
     IRegisterDeviceUseCase registerDeviceUseCase,
     ILogoutUseCase logoutUseCase,
     IGetUserInfoByTokenUseCase getUserInfoByTokenUseCase,
+    IDeleteUserInfoByIdUseCase deleteUserInfoByIdUseCase,
     IJwtTokenGenerator jwtTokenGenerator) : ControllerBase
 {
     private const string Path = "/hammer-users/auth";
@@ -131,6 +132,37 @@ public sealed class AuthController(
     }
 
     /// <summary>
+    ///     회원을 탈퇴한다.
+    /// </summary>
+    /// <param name="authorization">The Authorization header value.</param>
+    /// <param name="ct">The cancellation token.</param>
+    /// <returns>200 OK on success.</returns>
+    [HttpDelete("register")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteUserAsync(
+        [FromHeader(Name = Authorization)] string? authorization, CancellationToken ct)
+    {
+        var claims = ExtractBearerClaims(authorization);
+
+        if (claims is null)
+            return Unauthorized();
+
+        var response = await deleteUserInfoByIdUseCase.ExecuteAsync(claims.UserId, ct);
+
+        Response.Cookies.Delete(
+            RefreshToken,
+            new CookieOptions
+            {
+                HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict, Path = Path,
+            });
+
+        return Ok(response);
+    }
+
+    /// <summary>
     ///     로그아웃한다. Refresh Token을 폐기하고 디바이스를 제거한다.
     /// </summary>
     /// <param name="ct">The cancellation token.</param>
@@ -149,10 +181,7 @@ public sealed class AuthController(
             RefreshToken,
             new CookieOptions
             {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Path = Path,
+                HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict, Path = Path,
             });
 
         return NoContent();

@@ -389,6 +389,122 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task DeleteUser_ShouldReturn200_WhenBearerTokenIsValid()
+    {
+        var userId = Guid.NewGuid();
+        var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+        jwtTokenGenerator.ValidateAccessToken("valid-access-token")
+            .Returns(new AccessTokenClaims(userId, "test@example.com", "tester"));
+
+        var deleteUseCase = Substitute.For<IDeleteUserInfoByIdUseCase>();
+        deleteUseCase.ExecuteAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(new DeleteUserResponse(userId));
+
+        var client = CreateClient(deleteUserInfoByIdUseCase: deleteUseCase, jwtTokenGenerator: jwtTokenGenerator);
+        using var request = new HttpRequestMessage(HttpMethod.Delete, "/hammer-users/auth/register");
+        request.Headers.Add("Authorization", "Bearer valid-access-token");
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("id").GetString().Should().Be(userId.ToString());
+    }
+
+    [Fact]
+    public async Task DeleteUser_ShouldDeleteRefreshTokenCookie()
+    {
+        var userId = Guid.NewGuid();
+        var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+        jwtTokenGenerator.ValidateAccessToken("valid-access-token")
+            .Returns(new AccessTokenClaims(userId, "test@example.com", "tester"));
+
+        var deleteUseCase = Substitute.For<IDeleteUserInfoByIdUseCase>();
+        deleteUseCase.ExecuteAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(new DeleteUserResponse(userId));
+
+        var client = CreateClient(deleteUserInfoByIdUseCase: deleteUseCase, jwtTokenGenerator: jwtTokenGenerator);
+        using var request = new HttpRequestMessage(HttpMethod.Delete, "/hammer-users/auth/register");
+        request.Headers.Add("Authorization", "Bearer valid-access-token");
+
+        var response = await client.SendAsync(request);
+
+        response.Headers.TryGetValues("Set-Cookie", out var cookies).Should().BeTrue();
+        var cookieHeader = cookies!.First();
+        cookieHeader.Should().Contain("refresh_token=");
+        cookieHeader.Should().Contain("path=/hammer-users/auth");
+        cookieHeader.Should().Contain("expires=");
+    }
+
+    [Fact]
+    public async Task DeleteUser_ShouldReturn401_WhenNoAuthHeader()
+    {
+        var client = CreateClient(deleteUserInfoByIdUseCase: Substitute.For<IDeleteUserInfoByIdUseCase>(), jwtTokenGenerator: Substitute.For<IJwtTokenGenerator>());
+        using var request = new HttpRequestMessage(HttpMethod.Delete, "/hammer-users/auth/register");
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task DeleteUser_ShouldReturn401_WhenTokenIsInvalid()
+    {
+        var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+        jwtTokenGenerator.ValidateAccessToken("invalid-token").Returns((AccessTokenClaims?)null);
+
+        var client = CreateClient(deleteUserInfoByIdUseCase: Substitute.For<IDeleteUserInfoByIdUseCase>(), jwtTokenGenerator: jwtTokenGenerator);
+        using var request = new HttpRequestMessage(HttpMethod.Delete, "/hammer-users/auth/register");
+        request.Headers.Add("Authorization", "Bearer invalid-token");
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task DeleteUser_ShouldReturn404_WhenUserNotFound()
+    {
+        var userId = Guid.NewGuid();
+        var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+        jwtTokenGenerator.ValidateAccessToken("valid-access-token")
+            .Returns(new AccessTokenClaims(userId, "test@example.com", "tester"));
+
+        var deleteUseCase = Substitute.For<IDeleteUserInfoByIdUseCase>();
+        deleteUseCase.ExecuteAsync(userId, Arg.Any<CancellationToken>())
+            .Throws(new NotFoundException($"유저를 찾을 수 없어요: {userId}"));
+
+        var client = CreateClient(deleteUserInfoByIdUseCase: deleteUseCase, jwtTokenGenerator: jwtTokenGenerator);
+        using var request = new HttpRequestMessage(HttpMethod.Delete, "/hammer-users/auth/register");
+        request.Headers.Add("Authorization", "Bearer valid-access-token");
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteUser_ShouldReturn400_WhenUserAlreadyDeleted()
+    {
+        var userId = Guid.NewGuid();
+        var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+        jwtTokenGenerator.ValidateAccessToken("valid-access-token")
+            .Returns(new AccessTokenClaims(userId, "test@example.com", "tester"));
+
+        var deleteUseCase = Substitute.For<IDeleteUserInfoByIdUseCase>();
+        deleteUseCase.ExecuteAsync(userId, Arg.Any<CancellationToken>())
+            .Throws(new BadRequestException($"이미 삭제된 유저에요: {userId}"));
+
+        var client = CreateClient(deleteUserInfoByIdUseCase: deleteUseCase, jwtTokenGenerator: jwtTokenGenerator);
+        using var request = new HttpRequestMessage(HttpMethod.Delete, "/hammer-users/auth/register");
+        request.Headers.Add("Authorization", "Bearer valid-access-token");
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     private HttpClient CreateClient(
         IRegisterUserUseCase? registerUseCase = null,
         ILoginUserUseCase? loginUseCase = null,
@@ -397,6 +513,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
         IRegisterDeviceUseCase? registerDeviceUseCase = null,
         ILogoutUseCase? logoutUseCase = null,
         IGetUserInfoByTokenUseCase? getUserInfoByTokenUseCase = null,
+        IDeleteUserInfoByIdUseCase? deleteUserInfoByIdUseCase = null,
         IJwtTokenGenerator? jwtTokenGenerator = null)
     {
         return _factory.WithWebHostBuilder(builder =>
@@ -430,6 +547,9 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
 
                 if (getUserInfoByTokenUseCase is not null)
                     services.ReplaceService(getUserInfoByTokenUseCase);
+
+                if (deleteUserInfoByIdUseCase is not null)
+                    services.ReplaceService(deleteUserInfoByIdUseCase);
 
                 if (jwtTokenGenerator is not null)
                     services.ReplaceService(jwtTokenGenerator);

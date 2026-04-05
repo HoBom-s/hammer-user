@@ -1,7 +1,9 @@
+using Hammer.User.Domain.Enums;
+
 namespace Hammer.User.Domain.Ports;
 
 /// <summary>
-/// Repository for the User aggregate root.
+///     Repository for the User aggregate root.
 /// </summary>
 public interface IUserRepository
 {
@@ -12,7 +14,7 @@ public interface IUserRepository
     public Task<(IReadOnlyList<Entities.User> Items, int TotalCount)> GetPagedAsync(
         int page,
         int size,
-        Enums.UserStatus? status = null,
+        UserStatus? status = null,
         CancellationToken cancellationToken = default);
 
     public Task AddAsync(Entities.User user, CancellationToken cancellationToken = default);
