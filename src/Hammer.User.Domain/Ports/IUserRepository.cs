@@ -20,4 +20,8 @@ public interface IUserRepository
     public Task AddAsync(Entities.User user, CancellationToken cancellationToken = default);
 
     public Task SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    public Task<IReadOnlyList<Entities.User>> GetDeletedUsersBeforeAsync(DateTimeOffset cutoff, int limit, CancellationToken cancellationToken = default);
+
+    public Task HardDeleteAsync(Entities.User user, CancellationToken cancellationToken = default);
 }

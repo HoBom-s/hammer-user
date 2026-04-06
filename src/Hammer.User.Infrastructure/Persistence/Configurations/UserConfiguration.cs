@@ -21,6 +21,7 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<Domain.Entiti
         builder.Property(u => u.PasswordHash).HasMaxLength(256);
         builder.Property(u => u.Status).IsRequired().HasConversion<short>();
         builder.Property(u => u.DeletedAt);
+        builder.Property(u => u.AgreedTermsVersion).HasMaxLength(20);
 
         builder.HasIndex(u => u.Email)
             .IsUnique()

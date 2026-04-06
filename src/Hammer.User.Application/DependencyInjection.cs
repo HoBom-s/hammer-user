@@ -1,11 +1,14 @@
+using Hammer.User.Application.UseCases.CreateLegalDocument;
 using Hammer.User.Application.UseCases.Device;
 using Hammer.User.Application.UseCases.GetDeviceToken;
+using Hammer.User.Application.UseCases.GetLegalDocument;
 using Hammer.User.Application.UseCases.GetUsers;
 using Hammer.User.Application.UseCases.Login;
 using Hammer.User.Application.UseCases.Logout;
 using Hammer.User.Application.UseCases.OAuthLogin;
 using Hammer.User.Application.UseCases.RefreshToken;
 using Hammer.User.Application.UseCases.Register;
+using Hammer.User.Application.UseCases.UpdateProfile;
 using Hammer.User.Application.UseCases.UserInfo;
 using Hammer.User.Application.UseCases.ValidateToken;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,7 +27,9 @@ public static class DependencyInjection
     /// <returns>The service collection for chaining.</returns>
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddScoped<ICreateLegalDocumentUseCase, CreateLegalDocumentUseCase>();
         services.AddScoped<IGetDeviceTokenUseCase, GetDeviceTokenUseCase>();
+        services.AddScoped<IGetLegalDocumentUseCase, GetLegalDocumentUseCase>();
         services.AddScoped<IGetUsersUseCase, GetUsersUseCase>();
         services.AddScoped<ILoginUserUseCase, LoginUserUseCase>();
         services.AddScoped<ILogoutUseCase, LogoutUseCase>();
@@ -32,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<IRefreshTokenUseCase, RefreshTokenUseCase>();
         services.AddScoped<IRegisterDeviceUseCase, RegisterDeviceUseCase>();
         services.AddScoped<IRegisterUserUseCase, RegisterUserUseCase>();
+        services.AddScoped<IUpdateProfileUseCase, UpdateProfileUseCase>();
         services.AddScoped<IGetUserInfoByIdUseCase, GetUserInfoByIdUseCase>();
         services.AddScoped<IDeleteUserInfoByIdUseCase, DeleteUserInfoByIdUseCase>();
         services.AddScoped<IGetUserInfoByTokenUseCase, GetUserInfoByTokenUseCase>();

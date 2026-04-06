@@ -9,4 +9,5 @@ namespace Hammer.User.Application.UseCases.OAuthLogin;
 public sealed record OAuthLoginRequest(
     [Required] OAuthProvider Provider,
     [Required] string Token,
-    string? Nickname);
+    string? Nickname,
+    bool? AgreeToTerms);

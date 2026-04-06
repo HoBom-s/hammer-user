@@ -37,6 +37,11 @@ public sealed class HammerUserDbContext : DbContext
     /// </summary>
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
+    /// <summary>
+    /// Gets the legal documents.
+    /// </summary>
+    public DbSet<LegalDocument> LegalDocuments => Set<LegalDocument>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -10,12 +10,12 @@ using Hammer.User.Application.UseCases.Logout;
 using Hammer.User.Application.UseCases.OAuthLogin;
 using Hammer.User.Application.UseCases.RefreshToken;
 using Hammer.User.Application.UseCases.Register;
+using Hammer.User.Application.UseCases.UpdateProfile;
 using Hammer.User.Application.UseCases.UserInfo;
 using Hammer.User.Domain.Enums;
 using Hammer.User.Domain.Ports;
 using Hammer.User.Tests.Helpers;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 
@@ -35,11 +35,12 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     {
         var useCase = Substitute.For<IRegisterUserUseCase>();
         var expectedResponse = new RegisterUserResponse(Guid.NewGuid(), "test@example.com", "tester");
+
         useCase.ExecuteAsync(Arg.Any<RegisterUserRequest>(), Arg.Any<CancellationToken>())
             .Returns(expectedResponse);
 
-        var client = CreateClient(registerUseCase: useCase);
-        var request = new { Email = "test@example.com", Nickname = "tester", Password = "Test1234!" };
+        var client = CreateClient(useCase);
+        var request = new { Email = "test@example.com", Nickname = "tester", Password = "Test1234!", AgreeToTerms = true };
 
         var response = await client.PostAsJsonAsync("/hammer-users/auth/register", request);
 
@@ -59,8 +60,8 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     [InlineData("test@example.com", "tester", "NoDigits!!")]
     public async Task Register_ShouldReturn400_WhenRequestIsInvalid(string email, string nickname, string password)
     {
-        var client = CreateClient(registerUseCase: Substitute.For<IRegisterUserUseCase>());
-        var request = new { Email = email, Nickname = nickname, Password = password };
+        var client = CreateClient(Substitute.For<IRegisterUserUseCase>());
+        var request = new { Email = email, Nickname = nickname, Password = password, AgreeToTerms = true };
 
         var response = await client.PostAsJsonAsync("/hammer-users/auth/register", request);
 
@@ -71,6 +72,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     public async Task Login_ShouldReturn200WithAccessToken_WhenCredentialsAreValid()
     {
         var loginUseCase = Substitute.For<ILoginUserUseCase>();
+
         loginUseCase.ExecuteAsync(Arg.Any<LoginUserRequest>(), Arg.Any<CancellationToken>())
             .Returns(new LoginUserResponse("access-token", "refresh-token", DateTimeOffset.UtcNow.AddDays(7)));
 
@@ -88,6 +90,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     public async Task Login_ShouldSetRefreshTokenCookie_WhenCredentialsAreValid()
     {
         var loginUseCase = Substitute.For<ILoginUserUseCase>();
+
         loginUseCase.ExecuteAsync(Arg.Any<LoginUserRequest>(), Arg.Any<CancellationToken>())
             .Returns(new LoginUserResponse("access-token", "refresh-token", DateTimeOffset.UtcNow.AddDays(7)));
 
@@ -122,11 +125,13 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     public async Task Refresh_ShouldReturn200WithNewAccessToken_WhenCookieIsPresent()
     {
         var refreshUseCase = Substitute.For<IRefreshTokenUseCase>();
+
         refreshUseCase.ExecuteAsync("old-refresh-token", Arg.Any<CancellationToken>())
-            .Returns(new RefreshTokenResponse(
-                "new-access-token",
-                "new-refresh-token",
-                DateTimeOffset.UtcNow.AddDays(7)));
+            .Returns(
+                new RefreshTokenResponse(
+                    "new-access-token",
+                    "new-refresh-token",
+                    DateTimeOffset.UtcNow.AddDays(7)));
 
         var client = CreateClient(refreshUseCase: refreshUseCase);
         using var request = new HttpRequestMessage(HttpMethod.Post, "/hammer-users/auth/refresh");
@@ -143,11 +148,13 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     public async Task Refresh_ShouldSetRotatedRefreshTokenCookie()
     {
         var refreshUseCase = Substitute.For<IRefreshTokenUseCase>();
+
         refreshUseCase.ExecuteAsync("old-refresh-token", Arg.Any<CancellationToken>())
-            .Returns(new RefreshTokenResponse(
-                "new-access-token",
-                "new-refresh-token",
-                DateTimeOffset.UtcNow.AddDays(7)));
+            .Returns(
+                new RefreshTokenResponse(
+                    "new-access-token",
+                    "new-refresh-token",
+                    DateTimeOffset.UtcNow.AddDays(7)));
 
         var client = CreateClient(refreshUseCase: refreshUseCase);
         using var request = new HttpRequestMessage(HttpMethod.Post, "/hammer-users/auth/refresh");
@@ -178,6 +185,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     public async Task Refresh_ShouldReturn401_WhenUseCaseThrows()
     {
         var refreshUseCase = Substitute.For<IRefreshTokenUseCase>();
+
         refreshUseCase.ExecuteAsync("bad-token", Arg.Any<CancellationToken>())
             .Throws(new UnauthorizedException("유효하지 않은 토큰이에요."));
 
@@ -194,6 +202,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     public async Task OAuthLogin_ShouldReturn200WithAccessToken_WhenValid()
     {
         var oAuthUseCase = Substitute.For<IOAuthLoginUseCase>();
+
         oAuthUseCase.ExecuteAsync(Arg.Any<OAuthLoginRequest>(), Arg.Any<CancellationToken>())
             .Returns(new LoginUserResponse("oauth-access-token", "oauth-refresh-token", DateTimeOffset.UtcNow.AddDays(7)));
 
@@ -211,6 +220,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     public async Task OAuthLogin_ShouldSetRefreshTokenCookie_WhenValid()
     {
         var oAuthUseCase = Substitute.For<IOAuthLoginUseCase>();
+
         oAuthUseCase.ExecuteAsync(Arg.Any<OAuthLoginRequest>(), Arg.Any<CancellationToken>())
             .Returns(new LoginUserResponse("oauth-access-token", "oauth-refresh-token", DateTimeOffset.UtcNow.AddDays(7)));
 
@@ -231,6 +241,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     public async Task OAuthLogin_ShouldReturn401_WhenUnauthorized()
     {
         var oAuthUseCase = Substitute.For<IOAuthLoginUseCase>();
+
         oAuthUseCase.ExecuteAsync(Arg.Any<OAuthLoginRequest>(), Arg.Any<CancellationToken>())
             .Throws(new UnauthorizedException("비활성화된 계정입니다."));
 
@@ -246,6 +257,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     public async Task OAuthLogin_ShouldReturn409_WhenEmailConflicts()
     {
         var oAuthUseCase = Substitute.For<IOAuthLoginUseCase>();
+
         oAuthUseCase.ExecuteAsync(Arg.Any<OAuthLoginRequest>(), Arg.Any<CancellationToken>())
             .Throws(new ConflictException("이미 해당 이메일로 가입된 계정이 존재합니다."));
 
@@ -262,6 +274,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     {
         var registerDeviceUseCase = Substitute.For<IRegisterDeviceUseCase>();
         var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+
         jwtTokenGenerator.ValidateAccessToken("valid-access-token")
             .Returns(new AccessTokenClaims(Guid.NewGuid(), "test@example.com", "tester"));
 
@@ -352,10 +365,12 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     {
         var userId = Guid.NewGuid();
         var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+
         jwtTokenGenerator.ValidateAccessToken("valid-access-token")
             .Returns(new AccessTokenClaims(userId, "test@example.com", "tester"));
 
         var getUserInfoByTokenUseCase = Substitute.For<IGetUserInfoByTokenUseCase>();
+
         var expectedResponse = new UserInfoDetailResponse(
             userId,
             "test@example.com",
@@ -364,6 +379,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
             null,
             DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow);
+
         getUserInfoByTokenUseCase.ExecuteAsync(userId, Arg.Any<CancellationToken>())
             .Returns(expectedResponse);
 
@@ -390,14 +406,90 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     }
 
     [Fact]
+    public async Task UpdateProfile_ShouldReturn200_WhenBearerTokenIsValid()
+    {
+        var userId = Guid.NewGuid();
+        var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+
+        jwtTokenGenerator.ValidateAccessToken("valid-access-token")
+            .Returns(new AccessTokenClaims(userId, "test@example.com", "tester"));
+
+        var updateProfileUseCase = Substitute.For<IUpdateProfileUseCase>();
+
+        var expectedResponse = new UserSummaryResponse(
+            userId,
+            "test@example.com",
+            "new-nickname",
+            UserStatus.Active,
+            true,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow);
+
+        updateProfileUseCase.ExecuteAsync(userId, Arg.Any<UpdateProfileRequest>(), Arg.Any<CancellationToken>())
+            .Returns(expectedResponse);
+
+        var client = CreateClient(updateProfileUseCase: updateProfileUseCase, jwtTokenGenerator: jwtTokenGenerator);
+        using var request = new HttpRequestMessage(HttpMethod.Patch, "/hammer-users/auth/me");
+        request.Headers.Add("Authorization", "Bearer valid-access-token");
+        request.Content = JsonContent.Create(new { Nickname = "new-nickname" });
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("nickname").GetString().Should().Be("new-nickname");
+    }
+
+    [Fact]
+    public async Task UpdateProfile_ShouldReturn401_WhenNoAuthHeader()
+    {
+        var client = CreateClient(
+            updateProfileUseCase: Substitute.For<IUpdateProfileUseCase>(),
+            jwtTokenGenerator: Substitute.For<IJwtTokenGenerator>());
+
+        using var request = new HttpRequestMessage(HttpMethod.Patch, "/hammer-users/auth/me");
+        request.Content = JsonContent.Create(new { Nickname = "new-nickname" });
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateProfile_ShouldReturn400_WhenPasswordMismatch()
+    {
+        var userId = Guid.NewGuid();
+        var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+
+        jwtTokenGenerator.ValidateAccessToken("valid-access-token")
+            .Returns(new AccessTokenClaims(userId, "test@example.com", "tester"));
+
+        var updateProfileUseCase = Substitute.For<IUpdateProfileUseCase>();
+
+        updateProfileUseCase.ExecuteAsync(userId, Arg.Any<UpdateProfileRequest>(), Arg.Any<CancellationToken>())
+            .Throws(new BadRequestException("현재 비밀번호가 일치하지 않아요."));
+
+        var client = CreateClient(updateProfileUseCase: updateProfileUseCase, jwtTokenGenerator: jwtTokenGenerator);
+        using var request = new HttpRequestMessage(HttpMethod.Patch, "/hammer-users/auth/me");
+        request.Headers.Add("Authorization", "Bearer valid-access-token");
+        request.Content = JsonContent.Create(new { CurrentPassword = "wrong", NewPassword = "NewPass1!" });
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task DeleteUser_ShouldReturn200_WhenBearerTokenIsValid()
     {
         var userId = Guid.NewGuid();
         var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+
         jwtTokenGenerator.ValidateAccessToken("valid-access-token")
             .Returns(new AccessTokenClaims(userId, "test@example.com", "tester"));
 
         var deleteUseCase = Substitute.For<IDeleteUserInfoByIdUseCase>();
+
         deleteUseCase.ExecuteAsync(userId, Arg.Any<CancellationToken>())
             .Returns(new DeleteUserResponse(userId));
 
@@ -417,10 +509,12 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     {
         var userId = Guid.NewGuid();
         var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+
         jwtTokenGenerator.ValidateAccessToken("valid-access-token")
             .Returns(new AccessTokenClaims(userId, "test@example.com", "tester"));
 
         var deleteUseCase = Substitute.For<IDeleteUserInfoByIdUseCase>();
+
         deleteUseCase.ExecuteAsync(userId, Arg.Any<CancellationToken>())
             .Returns(new DeleteUserResponse(userId));
 
@@ -468,10 +562,12 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     {
         var userId = Guid.NewGuid();
         var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+
         jwtTokenGenerator.ValidateAccessToken("valid-access-token")
             .Returns(new AccessTokenClaims(userId, "test@example.com", "tester"));
 
         var deleteUseCase = Substitute.For<IDeleteUserInfoByIdUseCase>();
+
         deleteUseCase.ExecuteAsync(userId, Arg.Any<CancellationToken>())
             .Throws(new NotFoundException($"유저를 찾을 수 없어요: {userId}"));
 
@@ -489,10 +585,12 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     {
         var userId = Guid.NewGuid();
         var jwtTokenGenerator = Substitute.For<IJwtTokenGenerator>();
+
         jwtTokenGenerator.ValidateAccessToken("valid-access-token")
             .Returns(new AccessTokenClaims(userId, "test@example.com", "tester"));
 
         var deleteUseCase = Substitute.For<IDeleteUserInfoByIdUseCase>();
+
         deleteUseCase.ExecuteAsync(userId, Arg.Any<CancellationToken>())
             .Throws(new BadRequestException($"이미 삭제된 유저에요: {userId}"));
 
@@ -514,6 +612,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
         ILogoutUseCase? logoutUseCase = null,
         IGetUserInfoByTokenUseCase? getUserInfoByTokenUseCase = null,
         IDeleteUserInfoByIdUseCase? deleteUserInfoByIdUseCase = null,
+        IUpdateProfileUseCase? updateProfileUseCase = null,
         IJwtTokenGenerator? jwtTokenGenerator = null)
     {
         return _factory.WithWebHostBuilder(builder =>
@@ -525,6 +624,7 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
             builder.UseSetting("Jwt:Audience", "test");
             builder.UseSetting("Jwt:AccessTokenExpiryMinutes", "15");
             builder.UseSetting("Jwt:RefreshTokenExpiryDays", "7");
+
             builder.ConfigureServices(services =>
             {
                 if (registerUseCase is not null)
@@ -550,6 +650,9 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
 
                 if (deleteUserInfoByIdUseCase is not null)
                     services.ReplaceService(deleteUserInfoByIdUseCase);
+
+                if (updateProfileUseCase is not null)
+                    services.ReplaceService(updateProfileUseCase);
 
                 if (jwtTokenGenerator is not null)
                     services.ReplaceService(jwtTokenGenerator);

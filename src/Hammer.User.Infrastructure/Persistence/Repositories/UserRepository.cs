@@ -51,4 +51,18 @@ internal sealed class UserRepository(HammerUserDbContext context) : IUserReposit
             throw new ConflictException("이미 존재하는 데이터입니다.");
         }
     }
+
+    public async Task<IReadOnlyList<Domain.Entities.User>> GetDeletedUsersBeforeAsync(
+        DateTimeOffset cutoff, int limit, CancellationToken cancellationToken = default) =>
+        await context.Users
+            .IgnoreQueryFilters()
+            .Where(u => u.DeletedAt != null && u.DeletedAt < cutoff)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+    public async Task HardDeleteAsync(Domain.Entities.User user, CancellationToken cancellationToken = default)
+    {
+        context.Users.Remove(user);
+        await context.SaveChangesAsync(cancellationToken);
+    }
 }
