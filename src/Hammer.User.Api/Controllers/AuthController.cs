@@ -5,6 +5,7 @@ using Hammer.User.Application.UseCases.Logout;
 using Hammer.User.Application.UseCases.OAuthLogin;
 using Hammer.User.Application.UseCases.RefreshToken;
 using Hammer.User.Application.UseCases.Register;
+using Hammer.User.Application.UseCases.UpdateProfile;
 using Hammer.User.Application.UseCases.UserInfo;
 using Hammer.User.Domain.Ports;
 using Microsoft.AspNetCore.Mvc;
@@ -26,6 +27,7 @@ public sealed class AuthController(
     ILogoutUseCase logoutUseCase,
     IGetUserInfoByTokenUseCase getUserInfoByTokenUseCase,
     IDeleteUserInfoByIdUseCase deleteUserInfoByIdUseCase,
+    IUpdateProfileUseCase updateProfileUseCase,
     IJwtTokenGenerator jwtTokenGenerator) : ControllerBase
 {
     private const string Path = "/hammer-users/auth";
@@ -213,6 +215,32 @@ public sealed class AuthController(
             return Unauthorized();
 
         var response = await getUserInfoByTokenUseCase.ExecuteAsync(claims.UserId, ct);
+        return Ok(response);
+    }
+
+    /// <summary>
+    ///     인증된 유저의 프로필을 수정한다. 닉네임, 비밀번호 변경을 지원한다.
+    /// </summary>
+    /// <param name="authorization">The Authorization header value.</param>
+    /// <param name="request">The profile update request.</param>
+    /// <param name="ct">The cancellation token.</param>
+    /// <returns>200 OK with the updated user summary.</returns>
+    [HttpPatch("me")]
+    [ProducesResponseType(typeof(UserSummaryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateProfileAsync(
+        [FromHeader(Name = Authorization)] string? authorization,
+        UpdateProfileRequest request,
+        CancellationToken ct)
+    {
+        var claims = ExtractBearerClaims(authorization);
+
+        if (claims is null)
+            return Unauthorized();
+
+        var response = await updateProfileUseCase.ExecuteAsync(claims.UserId, request, ct);
         return Ok(response);
     }
 

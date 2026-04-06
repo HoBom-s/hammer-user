@@ -41,6 +41,11 @@ public sealed class User : Entity
     public DateTimeOffset? DeletedAt { get; private set; }
 
     /// <summary>
+    ///     Gets the terms of service version the user agreed to at registration.
+    /// </summary>
+    public string? AgreedTermsVersion { get; private set; }
+
+    /// <summary>
     ///     Gets the user's registered device, or <c>null</c> if none. Single-device policy.
     /// </summary>
     public UserDevice? Device { get; private set; }
@@ -71,8 +76,9 @@ public sealed class User : Entity
     /// <param name="email">The user's email address.</param>
     /// <param name="nickname">The user's display nickname.</param>
     /// <param name="passwordHash">The pre-hashed password.</param>
+    /// <param name="agreedTermsVersion">The terms of service version agreed to.</param>
     /// <returns>A new <see cref="User" /> instance.</returns>
-    public static User CreateWithCredentials(string email, string nickname, string passwordHash)
+    public static User CreateWithCredentials(string email, string nickname, string passwordHash, string? agreedTermsVersion = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
         ArgumentException.ThrowIfNullOrWhiteSpace(nickname);
@@ -84,6 +90,7 @@ public sealed class User : Entity
             Nickname = nickname,
             PasswordHash = passwordHash,
             Status = UserStatus.Active,
+            AgreedTermsVersion = agreedTermsVersion,
         };
     }
 
@@ -94,13 +101,14 @@ public sealed class User : Entity
     /// <param name="email">The user's email address, or <c>null</c> if not provided by the provider.</param>
     /// <param name="provider">The OAuth provider.</param>
     /// <param name="providerSubjectId">The provider's subject identifier.</param>
+    /// <param name="agreedTermsVersion">The terms of service version agreed to.</param>
     /// <returns>A new <see cref="User" /> instance.</returns>
-    public static User CreateWithOAuth(string nickname, string? email, OAuthProvider provider, string providerSubjectId)
+    public static User CreateWithOAuth(string nickname, string? email, OAuthProvider provider, string providerSubjectId, string? agreedTermsVersion = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(nickname);
         ArgumentException.ThrowIfNullOrWhiteSpace(providerSubjectId);
 
-        User user = new() { Email = email, Nickname = nickname, Status = UserStatus.Active };
+        User user = new() { Email = email, Nickname = nickname, Status = UserStatus.Active, AgreedTermsVersion = agreedTermsVersion };
 
         user._oAuthAccounts.Add(OAuthAccount.Create(user.Id, provider, providerSubjectId));
         return user;
@@ -173,6 +181,18 @@ public sealed class User : Entity
     {
         RevokeAllRefreshTokens();
         _refreshTokens.Add(RefreshToken.Create(Id, token, expiresAt));
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    ///     Updates the user's display nickname.
+    /// </summary>
+    /// <param name="nickname">The new nickname.</param>
+    public void UpdateNickname(string nickname)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(nickname);
+
+        Nickname = nickname;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 

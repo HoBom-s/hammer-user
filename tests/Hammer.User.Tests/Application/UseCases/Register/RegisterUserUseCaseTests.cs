@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Hammer.User.Application.Exceptions;
 using Hammer.User.Application.UseCases.Register;
+using Hammer.User.Domain.Entities;
 using Hammer.User.Domain.Ports;
 using NSubstitute;
 
@@ -10,11 +11,15 @@ public sealed class RegisterUserUseCaseTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
+    private readonly ILegalDocumentRepository _legalDocumentRepository = Substitute.For<ILegalDocumentRepository>();
     private readonly RegisterUserUseCase _sut;
 
     public RegisterUserUseCaseTests()
     {
-        _sut = new RegisterUserUseCase(_userRepository, _passwordHasher);
+        var terms = LegalDocument.Create(Domain.Enums.LegalDocumentType.TermsOfService, "1.0", DateTimeOffset.UtcNow, "content");
+        _legalDocumentRepository.GetLatestByTypeAsync(Arg.Any<Domain.Enums.LegalDocumentType>(), Arg.Any<CancellationToken>()).Returns(terms);
+
+        _sut = new RegisterUserUseCase(_userRepository, _passwordHasher, _legalDocumentRepository);
     }
 
     [Fact]
@@ -86,6 +91,48 @@ public sealed class RegisterUserUseCaseTests
         await _userRepository.DidNotReceive().AddAsync(Arg.Any<Domain.Entities.User>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task ExecuteAsync_ShouldThrowBadRequestException_WhenAgreeToTermsIsFalse()
+    {
+        var request = new RegisterUserRequest("test@example.com", "tester", "Test1234!", false);
+
+        var act = () => _sut.ExecuteAsync(request, CancellationToken.None);
+
+        await act.Should().ThrowAsync<BadRequestException>();
+        await _userRepository.DidNotReceive().GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldThrowNotFoundException_WhenTermsDocumentDoesNotExist()
+    {
+        _legalDocumentRepository.GetLatestByTypeAsync(Arg.Any<Domain.Enums.LegalDocumentType>(), Arg.Any<CancellationToken>())
+            .Returns((LegalDocument?)null);
+
+        var request = CreateValidRequest();
+        _userRepository.GetByEmailAsync(request.Email, Arg.Any<CancellationToken>())
+            .Returns((Domain.Entities.User?)null);
+
+        var act = () => _sut.ExecuteAsync(request, CancellationToken.None);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+        await _userRepository.DidNotReceive().AddAsync(Arg.Any<Domain.Entities.User>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldStoreAgreedTermsVersion_WhenCreatingUser()
+    {
+        var request = CreateValidRequest();
+        _userRepository.GetByEmailAsync(request.Email, Arg.Any<CancellationToken>())
+            .Returns((Domain.Entities.User?)null);
+        _passwordHasher.Hash(request.Password).Returns("hashed-password");
+
+        await _sut.ExecuteAsync(request, CancellationToken.None);
+
+        await _userRepository.Received(1).AddAsync(
+            Arg.Is<Domain.Entities.User>(u => u.AgreedTermsVersion == "1.0"),
+            Arg.Any<CancellationToken>());
+    }
+
     private static RegisterUserRequest CreateValidRequest(string email = "test@example.com") =>
-        new(email, "tester", "Test1234!");
+        new(email, "tester", "Test1234!", true);
 }

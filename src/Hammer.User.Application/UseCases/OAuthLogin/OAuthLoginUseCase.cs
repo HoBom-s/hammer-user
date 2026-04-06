@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Hammer.User.Application.Common;
 using Hammer.User.Application.Exceptions;
 using Hammer.User.Application.UseCases.Login;
+using Hammer.User.Domain.Enums;
 using Hammer.User.Domain.Ports;
 using Microsoft.Extensions.Options;
 
@@ -15,7 +16,8 @@ internal sealed class OAuthLoginUseCase(
     IOAuthAccountRepository oAuthAccountRepository,
     IUserRepository userRepository,
     IJwtTokenGenerator jwtTokenGenerator,
-    IOptions<JwtSettings> jwtSettings)
+    IOptions<JwtSettings> jwtSettings,
+    ILegalDocumentRepository legalDocumentRepository)
     : IOAuthLoginUseCase
 {
     public async Task<LoginUserResponse> ExecuteAsync(OAuthLoginRequest request, CancellationToken ct)
@@ -78,6 +80,9 @@ internal sealed class OAuthLoginUseCase(
         OAuthUserInfo userInfo,
         CancellationToken ct)
     {
+        if (request.AgreeToTerms != true)
+            throw new BadRequestException("이용약관에 동의해야 합니다.");
+
         if (userInfo.Email is not null)
         {
             var existingUser = await userRepository.GetByEmailAsync(userInfo.Email, ct);
@@ -86,13 +91,17 @@ internal sealed class OAuthLoginUseCase(
                 throw new ConflictException("이미 해당 이메일로 가입된 계정이 존재합니다. 기존 방식으로 로그인해 주세요.");
         }
 
+        var terms = await legalDocumentRepository.GetLatestByTypeAsync(LegalDocumentType.TermsOfService, ct)
+            ?? throw new NotFoundException("이용약관을 찾을 수 없습니다.");
+
         var nickname = ResolveNickname(request.Nickname, userInfo);
 
         var user = Domain.Entities.User.CreateWithOAuth(
             nickname,
             userInfo.Email,
             request.Provider,
-            userInfo.ProviderSubjectId);
+            userInfo.ProviderSubjectId,
+            terms.Version);
 
         await userRepository.AddAsync(user, ct);
 

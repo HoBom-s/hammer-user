@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<IOAuthAccountRepository, OAuthAccountRepository>();
         services.AddScoped<IUserDeviceRepository, UserDeviceRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<ILegalDocumentRepository, LegalDocumentRepository>();
 
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
@@ -52,6 +53,8 @@ public static class DependencyInjection
         services.AddSingleton<IOAuthProviderClient, KakaoOAuthClient>();
         services.AddSingleton<IOAuthProviderClient, NaverOAuthClient>();
         services.AddSingleton<IOAuthUserInfoProvider, OAuthUserInfoProvider>();
+
+        services.AddHostedService<DeletedUserCleanupService>();
 
         services
             .AddHealthChecks()
