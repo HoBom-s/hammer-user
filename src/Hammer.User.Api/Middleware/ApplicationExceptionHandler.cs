@@ -1,6 +1,7 @@
 using Hammer.User.Application.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 using Serilog.Context;
 
 namespace Hammer.User.Api.Middleware;
@@ -22,7 +23,7 @@ internal sealed class ApplicationExceptionHandler(
         var (statusCode, title) = exception switch
         {
             BadRequestException => (StatusCodes.Status400BadRequest, "Bad Request"),
-            UnauthorizedException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
+            UnauthorizedException or SecurityTokenException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
             ForbiddenException => (StatusCodes.Status403Forbidden, "Forbidden"),
             NotFoundException => (StatusCodes.Status404NotFound, "Not Found"),
             ConflictException => (StatusCodes.Status409Conflict, "Conflict"),

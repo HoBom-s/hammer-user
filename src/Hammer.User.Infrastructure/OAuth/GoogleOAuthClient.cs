@@ -37,7 +37,7 @@ internal sealed class GoogleOAuthClient : IOAuthProviderClient
             ValidateIssuer = true,
             ValidIssuers = ["https://accounts.google.com", "accounts.google.com"],
             ValidateAudience = true,
-            ValidAudience = _settings.ClientId,
+            ValidAudiences = _settings.ClientIds,
             ValidateIssuerSigningKey = true,
             IssuerSigningKeys = config.SigningKeys,
             ValidateLifetime = true,

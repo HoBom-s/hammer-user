@@ -21,8 +21,8 @@ internal sealed class OAuthSettings
     internal sealed class ProviderSettings
     {
         /// <summary>
-        ///     Gets the OAuth client ID.
+        ///     Gets the OAuth client IDs (web + mobile).
         /// </summary>
-        public string ClientId { get; init; } = string.Empty;
+        public string[] ClientIds { get; init; } = [];
     }
 }
