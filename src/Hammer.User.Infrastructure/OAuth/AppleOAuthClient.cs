@@ -37,7 +37,7 @@ internal sealed class AppleOAuthClient : IOAuthProviderClient
             ValidateIssuer = true,
             ValidIssuer = "https://appleid.apple.com",
             ValidateAudience = true,
-            ValidAudience = _settings.ClientId,
+            ValidAudiences = _settings.ClientIds,
             ValidateIssuerSigningKey = true,
             IssuerSigningKeys = config.SigningKeys,
             ValidateLifetime = true,
