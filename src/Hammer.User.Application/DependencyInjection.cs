@@ -1,8 +1,6 @@
-using Hammer.User.Application.UseCases.CreateLegalDocument;
 using Hammer.User.Application.UseCases.Device;
 using Hammer.User.Application.UseCases.GetDeviceToken;
 using Hammer.User.Application.UseCases.GetLegalDocument;
-using Hammer.User.Application.UseCases.GetUsers;
 using Hammer.User.Application.UseCases.Login;
 using Hammer.User.Application.UseCases.Logout;
 using Hammer.User.Application.UseCases.OAuthLogin;
@@ -27,10 +25,8 @@ public static class DependencyInjection
     /// <returns>The service collection for chaining.</returns>
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        services.AddScoped<ICreateLegalDocumentUseCase, CreateLegalDocumentUseCase>();
         services.AddScoped<IGetDeviceTokenUseCase, GetDeviceTokenUseCase>();
         services.AddScoped<IGetLegalDocumentUseCase, GetLegalDocumentUseCase>();
-        services.AddScoped<IGetUsersUseCase, GetUsersUseCase>();
         services.AddScoped<ILoginUserUseCase, LoginUserUseCase>();
         services.AddScoped<ILogoutUseCase, LogoutUseCase>();
         services.AddScoped<IOAuthLoginUseCase, OAuthLoginUseCase>();

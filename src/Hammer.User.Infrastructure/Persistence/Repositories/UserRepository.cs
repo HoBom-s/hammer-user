@@ -1,5 +1,4 @@
 using Hammer.User.Application.Exceptions;
-using Hammer.User.Domain.Enums;
 using Hammer.User.Domain.Ports;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -13,25 +12,6 @@ internal sealed class UserRepository(HammerUserDbContext context) : IUserReposit
 
     public async Task<Domain.Entities.User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default) =>
         await context.Users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
-
-    public async Task<(IReadOnlyList<Domain.Entities.User> Items, int TotalCount)> GetPagedAsync(
-        int page, int size, UserStatus? status = null, CancellationToken cancellationToken = default)
-    {
-        var query = context.Users.AsQueryable();
-
-        if (status.HasValue)
-            query = query.Where(u => u.Status == status.Value);
-
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var items = await query
-            .OrderBy(u => u.CreatedAt)
-            .Skip((page - 1) * size)
-            .Take(size)
-            .ToListAsync(cancellationToken);
-
-        return (items, totalCount);
-    }
 
     public async Task AddAsync(Domain.Entities.User user, CancellationToken cancellationToken = default) =>
         await context.Users.AddAsync(user, cancellationToken);
