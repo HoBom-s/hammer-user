@@ -118,4 +118,32 @@ public sealed class LoginUserUseCaseTests
 
         await act.Should().ThrowAsync<UnauthorizedException>();
     }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldThrowForbidden_WhenUserIsSuspended()
+    {
+        var request = new LoginUserRequest("test@example.com", "Test1234!");
+        var user = Domain.Entities.User.CreateWithCredentials("test@example.com", "tester", "hashed");
+        user.Suspend();
+        _userRepository.GetByEmailAsync(request.Email, Arg.Any<CancellationToken>()).Returns(user);
+        _passwordHasher.Verify(request.Password, "hashed").Returns(true);
+
+        var act = () => _sut.ExecuteAsync(request, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ForbiddenException>().WithMessage("*정지*");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldThrowUnauthorized_WhenPasswordIsWrongEvenIfSuspended()
+    {
+        var request = new LoginUserRequest("test@example.com", "Wrong!");
+        var user = Domain.Entities.User.CreateWithCredentials("test@example.com", "tester", "hashed");
+        user.Suspend();
+        _userRepository.GetByEmailAsync(request.Email, Arg.Any<CancellationToken>()).Returns(user);
+        _passwordHasher.Verify(request.Password, "hashed").Returns(false);
+
+        var act = () => _sut.ExecuteAsync(request, CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedException>();
+    }
 }

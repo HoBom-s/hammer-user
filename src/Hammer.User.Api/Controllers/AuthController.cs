@@ -45,6 +45,7 @@ public sealed class AuthController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> LoginAsync(LoginUserRequest request, CancellationToken ct)
     {
         var response = await loginUserUseCase.ExecuteAsync(request, ct);
@@ -62,6 +63,7 @@ public sealed class AuthController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> OAuthLoginAsync(OAuthLoginRequest request, CancellationToken ct)
     {

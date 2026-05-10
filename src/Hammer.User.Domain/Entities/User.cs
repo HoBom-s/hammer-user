@@ -226,6 +226,37 @@ public sealed class User : Entity
     }
 
     /// <summary>
+    ///     Suspends the account, blocking new logins. Idempotent when already suspended.
+    /// </summary>
+    public void Suspend()
+    {
+        if (Status == UserStatus.Deleted)
+            throw new InvalidOperationException("Deleted user cannot be suspended.");
+
+        if (Status == UserStatus.Suspended)
+            return;
+
+        Status = UserStatus.Suspended;
+        UpdatedAt = DateTimeOffset.UtcNow;
+        RevokeAllRefreshTokens();
+    }
+
+    /// <summary>
+    ///     Activates the account. Idempotent when already active.
+    /// </summary>
+    public void Activate()
+    {
+        if (Status == UserStatus.Deleted)
+            throw new InvalidOperationException("Deleted user cannot be activated.");
+
+        if (Status == UserStatus.Active)
+            return;
+
+        Status = UserStatus.Active;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
     ///     Revokes all active refresh tokens.
     /// </summary>
     private void RevokeAllRefreshTokens()

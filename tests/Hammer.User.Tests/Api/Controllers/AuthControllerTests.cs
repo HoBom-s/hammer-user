@@ -122,6 +122,42 @@ public sealed class AuthControllerTests : IClassFixture<WebApplicationFactory<Pr
     }
 
     [Fact]
+    public async Task Login_ShouldReturn403_WhenAccountIsSuspended()
+    {
+        var loginUseCase = Substitute.For<ILoginUserUseCase>();
+
+        loginUseCase.ExecuteAsync(Arg.Any<LoginUserRequest>(), Arg.Any<CancellationToken>())
+            .Throws(new ForbiddenException("계정이 정지되어 로그인할 수 없습니다. 관리자에게 문의해 주세요."));
+
+        var client = CreateClient(loginUseCase: loginUseCase);
+        var request = new { Email = "test@example.com", Password = "Test1234!" };
+
+        var response = await client.PostAsJsonAsync("/hammer-users/auth/login", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("detail").GetString().Should().Contain("정지");
+    }
+
+    [Fact]
+    public async Task OAuthLogin_ShouldReturn403_WhenAccountIsSuspended()
+    {
+        var oAuthUseCase = Substitute.For<IOAuthLoginUseCase>();
+
+        oAuthUseCase.ExecuteAsync(Arg.Any<OAuthLoginRequest>(), Arg.Any<CancellationToken>())
+            .Throws(new ForbiddenException("계정이 정지되어 로그인할 수 없습니다. 관리자에게 문의해 주세요."));
+
+        var client = CreateClient(oAuthLoginUseCase: oAuthUseCase);
+        var request = new { Provider = OAuthProvider.Google, Token = "google-token" };
+
+        var response = await client.PostAsJsonAsync("/hammer-users/auth/oauth", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("detail").GetString().Should().Contain("정지");
+    }
+
+    [Fact]
     public async Task Refresh_ShouldReturn200WithNewAccessToken_WhenCookieIsPresent()
     {
         var refreshUseCase = Substitute.For<IRefreshTokenUseCase>();
