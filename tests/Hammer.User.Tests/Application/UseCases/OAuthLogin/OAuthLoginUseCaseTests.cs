@@ -89,6 +89,27 @@ public sealed class OAuthLoginUseCaseTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_ShouldThrowForbidden_WhenExistingOAuthUserIsSuspended()
+    {
+        var request = new OAuthLoginRequest(OAuthProvider.Google, "google-token", null, null);
+        var userInfo = new OAuthUserInfo("google-sub-123", "test@example.com", null);
+        var user = Domain.Entities.User.CreateWithOAuth("tester", "test@example.com", OAuthProvider.Google, "google-sub-123");
+        user.Suspend();
+        var oAuthAccount = OAuthAccount.Create(user.Id, OAuthProvider.Google, "google-sub-123");
+
+        _oAuthUserInfoProvider.GetUserInfoAsync(OAuthProvider.Google, "google-token", Arg.Any<CancellationToken>())
+            .Returns(userInfo);
+        _oAuthAccountRepository.GetByProviderAndSubjectAsync(OAuthProvider.Google, "google-sub-123", Arg.Any<CancellationToken>())
+            .Returns(oAuthAccount);
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>())
+            .Returns(user);
+
+        var act = () => _sut.ExecuteAsync(request, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ForbiddenException>().WithMessage("*정지*");
+    }
+
+    [Fact]
     public async Task ExecuteAsync_ShouldThrow_WhenExistingOAuthUserNotFound()
     {
         var request = new OAuthLoginRequest(OAuthProvider.Google, "google-token", null, null);

@@ -62,6 +62,9 @@ internal sealed class OAuthLoginUseCase(
         var user = await userRepository.GetByIdAsync(userId, ct)
             ?? throw new UnauthorizedException("사용자를 찾을 수 없습니다.");
 
+        if (user.Status == UserStatus.Suspended)
+            throw new ForbiddenException("계정이 정지되어 로그인할 수 없습니다. 관리자에게 문의해 주세요.");
+
         if (!user.IsActive)
             throw new UnauthorizedException("비활성화된 계정입니다.");
 
